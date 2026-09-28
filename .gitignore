@@ -1,0 +1,10 @@
+env/
+venv/
+bin/
+include/
+lib/
+lib64
+pyvenvcfg
+__pycache__/
+*.db
+.DS_Store

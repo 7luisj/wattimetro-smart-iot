@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wattimetro Smart - Dashboard</title>
+    <!-- Librerías de Highcharts -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            /*padding: 5px;*/
+            background-color: #eeeeee;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        /* Grid de métricas rápidas */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 5px;
+            max-width: 1000px;
+            margin: auto auto auto auto;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.55);
+            text-align: center;
+        }
+        .card h3 {
+            margin: 0 0 0 0;
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #007bff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.35);
+        }
+
+        /* Selector de fecha */
+        .filter-container {
+            background: #ffffff;
+            padding: 1px;
+            border-radius: 10px;
+            max-width: 1000px;
+            margin: 10px auto auto auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 6px 4px rgba(0,0,0,0.55);
+        }
+        .filter-container input[type="date"] {
+            padding: 15px 15px;
+            font-size: 16px;
+            border: 1px solid #777;
+            border-radius: 6px;
+        }
+
+        /* Contenedor del Gráfico */
+        .chart-card {
+            background: #ffffff;
+            padding: 5px;
+            border-radius: 10px;  
+            max-width: 1000px;
+            margin: auto auto auto auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.55);
+        }
+
+        /* Panel de Control */
+        .control-card {
+            display: block;
+            background: #ffffff;
+            padding: 5px;
+            border-radius: 10px;
+            max-width: 1000px;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.55);
+            margin: 10px auto auto auto;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-right: 10px;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-secondary { background-color: #116c9d; color: white; }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .bg-on { background-color: #d4edda; color: #155724; }
+        .bg-off { background-color: #f8d7da; color: #721c24; }
+    </style>
+
+</head>
+
+
+<body>
+
+    <h1>Wattimetro Smart</h1>
+
+    <!-- 1. Contenedor de Últimas Lecturas de Voltaje y Corriente -->
+    <div class="metrics-grid">
+        <div class="card">
+            <h3>Último Voltaje</h3>
+            <div id="val-voltaje" class="value">-- V</div>
+        </div>
+        <div class="card">
+            <h3>Última Corriente</h3>
+            <div id="val-corriente" class="value" style="color: #740a30;">-- A</div>
+        </div>
+    </div>
+
+    <!-- 2. Filtro interactivo con <input type="date"> -->
+    <div class="filter-container">
+        <label for="fecha-filtro"><strong>Filtrar por Fecha:</strong></label>
+        <input type="date" id="fecha-filtro" onchange="cargarDatosGrafico()">
+    </div>
+
+    <!-- 3. Gráfico Principal de Potencia -->
+    <!-- div class="chart-card" -->
+        <div id="container" style="width:100%; height:300px;"></div>
+    <!-- /div -->
+
+    <!-- 4. Contenedor de Control del Circuito -->
+    <div class="control-card">
+        <h3>Control del Circuito</h3>
+        
+        <p id="msg-auto" style="color: #0056b3; display: none; margin-bottom: 15px;">
+            ℹ️ <em>Modo Automático activo: El circuito opera programado de 17:00h a 05:00h.</em>
+        </p>
+
+        <div style="">
+            <!-- Botón 1: Modo Automático / Manual -->
+            <button id="btn-modo" class="btn btn-secondary" onclick="alternarModo()">
+                Modo: Cargando...
+            </button>
+
+            <!-- Botón 2: Encender / Apagar Circuito -->
+            <button id="btn-estado" class="btn btn-danger" onclick="alternarEstadoCircuito()">
+                Estado: Cargando...
+            </button>
+        
+            <span id="badge-estado" class="status-badge bg-off">Circuito Desconectado</span>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        let estadoActual = { automatico: 0, boton1: 0};
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Establecer la fecha de hoy por defecto en el selector
+            const hoy = new Date().toLocaleDateString('sv-SE');
+            document.getElementById('fecha-filtro').value = hoy;
+
+            // Inicializar Highcharts
+            chart = Highcharts.chart('container', {
+                chart: { zooming: { type: 'x' } },
+                title: { text: 'Consumo de Potencia Aparente' },
+                subtitle: { text: 'Jose Luis Torres Bonilla' },
+                xAxis: { type: 'datetime' },
+                yAxis: { title: { text: 'Potencia Aparente (VA)' } },
+                tooltip: { pointFormat: '{point.y:.3f} VA' },
+                series: [{
+                    name: 'Potencia Aparente',
+                    data: [],
+                    type: 'area',
+                    color: '#079dda'//Color de la grafica 
+                }]
+            });
+
+            // Cargar datos y estado
+            cargarDatosGrafico();
+            cargarUltimasLecturas();
+            cargarEstadoControl();
+
+            // Refrescar lecturas de voltaje/corriente cada 3 segundos
+            setInterval(cargarUltimasLecturas, 3000);
+            // Refrescar grafico cada 10 segundos
+            setInterval(cargarDatosGrafico,10000);
+        });
+
+        // Cargar datos del gráfico según la fecha seleccionada
+        async function cargarDatosGrafico() {
+            const fecha = document.getElementById('fecha-filtro').value;
+            
+            
+            if (!fecha) return;
+
+            try {
+                const response = await fetch(`/api/wattimetro?fecha=${fecha}`);
+                const data = await response.json();
+                chart.series[0].setData(data.potencia);
+            } catch (error) {
+                console.error("Error al cargar gráfica:", error);
+            }
+        }
+
+        // Obtener último voltaje y corriente recibidos por MQTT
+        async function cargarUltimasLecturas() {
+            try {
+                const response = await fetch('/api/datos');
+                const data = await response.json();
+
+                document.getElementById('val-voltaje').innerText = `${data.voltaje.toFixed(2)} V`;
+                document.getElementById('val-corriente').innerText = `${data.corriente.toFixed(2)} A`;
+            } catch (error) {
+                console.error("Error al obtener lecturas:", error);
+            }
+        }
+
+        // Cargar estado de los botones de control
+        async function cargarEstadoControl() {
+            try {
+                const response = await fetch('/api/estado');
+                estadoActual = await response.json();//let estadoActual = { automatico: 0, boton1: 0};
+
+                const btnModo = document.getElementById('btn-modo');
+                const btnEstado = document.getElementById('btn-estado');
+                const badgeEstado = document.getElementById('badge-estado');
+                const msgAuto = document.getElementById('msg-auto');
+
+                // Actualizar Botón de Modo (Automático / Manual)
+                if (estadoActual.automatico === 0) {
+                    btnModo.innerText = "Modo: MANUAL";
+                    btnModo.className = "btn btn-primary";
+                    msgAuto.style.display = "none";
+                    btnEstado.disabled = false;
+                } else {
+                    btnModo.innerText = "Modo: AUTOMÁTICO";
+                    btnModo.className = "btn btn-secondary";
+                    msgAuto.style.display = "block";
+                    btnEstado.disabled = true; // Deshabilitar botón manual en modo automático
+                }
+
+                // Actualizar Botón y Badge de Encendido / Apagado
+                if (estadoActual.boton1 === 1) {
+                    btnEstado.innerText = "Apagar Circuito";
+                    btnEstado.className = "btn btn-danger";
+                    badgeEstado.innerText = "Circuito Conectado";
+                    badgeEstado.className = "status-badge bg-on";
+                } else {
+                    btnEstado.innerText = "Encender Circuito";
+                    btnEstado.className = "btn btn-success";
+                    badgeEstado.innerText = "Circuito Desconectado";
+                    badgeEstado.className = "status-badge bg-off";
+                }
+
+            } catch (error) {
+                console.error("Error al obtener estado:", error);
+            }
+        }
+
+        // Alternar entre modo Manual y Automático
+        async function alternarModo() {
+            const nuevoModo = estadoActual.automatico === 1 ? 0 : 1;
+            await enviarComandoControl({ automatico: nuevoModo, boton1: estadoActual.boton1 });
+        }
+
+        // Alternar Encendido / Apagado
+        async function alternarEstadoCircuito() {
+            const nuevoEstado = estadoActual.boton1 === 1 ? 0 : 1;
+            await enviarComandoControl({ automatico: estadoActual.automatico, boton1: nuevoEstado });
+        }
+
+        // Enviar POST a la API de Flask
+        async function enviarComandoControl(payload) {
+            try {
+                const response = await fetch('/api/control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    cargarEstadoControl();
+                }
+            } catch (error) {
+                console.error("Error enviando comando:", error);
+            }
+        }
+    </script>
+</body>
+</html>
