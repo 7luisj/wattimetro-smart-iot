@@ -8,3 +8,4 @@ pyvenvcfg
 __pycache__/
 *.db
 .DS_Store
+pyvenv.cfg
