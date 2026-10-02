@@ -5,7 +5,7 @@ y evitar conflictos con otras librerías de Python
 en el sistema, sigue estos pasos:
 
 1. **Crear el entorno virtual:**
-   bash:
+   $:
    python3 -m venv env
 
 ### Instalación de dependencias
@@ -14,7 +14,7 @@ Para instalar todas las librerías necesarias de Python
 para el servidor Flask y el cliente MQTT, 
 ejecuta el siguiente comando en tu terminal 
 2. **(con tu entorno virtual activado):**
-   bash
+   $:
    pip install -r requirements.txt
 
 
