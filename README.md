@@ -1,3 +1,25 @@
+### 🐍 Configuración del Entorno Virtual e Instalación
+
+Para aislar las dependencias del proyecto 
+y evitar conflictos con otras librerías de Python 
+en el sistema, sigue estos pasos:
+
+1. **Crear el entorno virtual:**
+   bash:
+   python3 -m venv env
+
+### Instalación de dependencias
+
+Para instalar todas las librerías necesarias de Python 
+para el servidor Flask y el cliente MQTT, 
+ejecuta el siguiente comando en tu terminal 
+2. **(con tu entorno virtual activado):**
+   bash
+   pip install -r requirements.txt
+
+
+
+
 Wattímetro Smart IoT ⚡📱
 Un sistema IoT completo para la monitorización en tiempo real 
 del consumo de energía eléctrica y el control remoto/automatizado 
