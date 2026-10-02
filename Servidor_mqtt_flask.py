@@ -13,6 +13,7 @@ log = logging.getLogger("MQTT_Server")
 DB_NAME = "basedatos_iot.db"
 
 
+
 def set_estado_circuito(a,b):
     try:
         with sqlite3.connect(DB_NAME) as conn:
@@ -53,7 +54,7 @@ def estado_circuito():
             ORDER BY id DESC LIMIT 1
         ''')
         rows = cursor.fetchone()
-    
+
     circuito = {
     "automatico": rows[0],
     "boton1": rows[1]
@@ -68,7 +69,6 @@ def estado_relay1(a,b):
         if hora_actual >= 17 or hora_actual < 5:#Encender desde las 17:00 hasta las 5:00
             set_estado_circuito(a, b)
             return "1"
-        
         else:
             set_estado_circuito(a, b)
             return "0"
@@ -94,7 +94,7 @@ def init_db():
             )
         ''')
         conn.commit()
-    
+
 
 init_db()
 
@@ -103,7 +103,7 @@ def on_connect(client, userdata, flags, rc):
     log.info(f"Conectado al Broker MQTT con código: {rc}")
     client.subscribe("sensores/esp32")
     #client.publish("control/esp32", estado_circuito())
-    
+
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode('utf-8'))
@@ -114,7 +114,14 @@ def on_message(client, userdata, msg):
     # 2. Extraer y convertir a float
     try:
         volt = float(data['voltaje'])*162
-        corr = float(data['corriente'])*(1.66/5)
+        #corr =  float(data['corriente']) #(1.66/5)
+
+        if float(data['corriente']) > 0.15:
+                corr = float(data['corriente'])*(1.66/5)
+        else:
+                corr = 0
+	#corr if corr > 0.05 else corr = 0.0
+
     except (KeyError, TypeError, ValueError) as e:
         log.warning("Datos incompletos o no numéricos: %s (%s)", data, e)
         return
@@ -124,7 +131,24 @@ def on_message(client, userdata, msg):
     #Recuperando datos de misma base de datos para introducir los valores 
     #automatico y boton1
     circuito = estado_circuito()
-    client.publish("control/esp32", circuito["boton1"])
+    hora = datetime.now().hour
+
+    if circuito["automatico"] == 1 and (hora >= 5 and hora < 17):
+        client.publish("control/esp32", 0)
+        log.info("Dentro del if anidado en funcion on_message, envia 0 al ESP32")
+        circuito["boton1"] = 0
+        circuito["automatico"] = 1
+
+        #set_estado_circuito(1,1)
+    else:
+        client.publish("control/esp32", 1)
+        log.info(f"Dentro del else anidado en funcion on_message, envia 1 al ESP32")
+        #circuito["boton1"] = 0
+        #circuito["automatico"] = circuito["automatico"]
+
+    log.info(f"circuito.automatico={circuito['automatico']}, circuito.boton1={circuito['boton1']}")
+
+        #set_estado_circuito(0,1)
     
     try:
         with sqlite3.connect(DB_NAME) as conn:
@@ -193,7 +217,7 @@ def get_wattimetro():
             SELECT strftime('%s', fecha) * 1000, potencia 
             FROM lecturas 
             WHERE date(fecha) = date(?)
-            ORDER BY fecha ASC
+            ORDER BY id DESC
         ''', (fecha,))
         rows = cursor.fetchall()
     
@@ -227,7 +251,7 @@ def post_control():
             boton = int(payload['boton1'])
             #estado_circuito['boton1'] = int(payload['boton1'])
         '''
-        relay1 = estado_relay1(int(payload['automatico']), int(payload['boton1']))#retorna 1, si automatico y esta en el horario, sino manual
+        relay1 = set_estado_circuito(int(payload['automatico']), int(payload['boton1']))#retorna 1, si automatico y esta en el horario, sino manual
         #set_estado_circuito(int(payload['automatico']), int(payload['boton1']))
         
         # Enviar comando al ESP32 por MQTT
