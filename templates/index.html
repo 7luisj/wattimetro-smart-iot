@@ -200,10 +200,10 @@
             cargarUltimasLecturas();
             cargarEstadoControl();
 
-            // Refrescar lecturas de voltaje/corriente cada 3 segundos
-            setInterval(cargarUltimasLecturas, 3000);
-            // Refrescar grafico cada 10 segundos
-            setInterval(cargarDatosGrafico,10000);
+            // Refrescar lecturas de voltaje/corriente cada 30 segundos
+            setInterval(cargarUltimasLecturas, 10000);
+            // Refrescar grafico cada 31 segundos
+            setInterval(cargarDatosGrafico,61000);
         });
 
         // Cargar datos del gráfico según la fecha seleccionada
